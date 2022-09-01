@@ -82,6 +82,7 @@ _get_reserved_ipv6() {
 #}
 
 fix_sysctl() {
+  # reference: https://nobb.site/2022/02/18/0x72/
   _apply_sysctl net.bridge.bridge-nf-call-iptables 0
   [ "$DISABLE_IPV6" = 1 ] || _apply_sysctl net.bridge.bridge-nf-call-ip6tables 0
 }
@@ -146,8 +147,9 @@ create_transproxy_chain() {
 	-A TRANSPROXY_DST_AC -j $DST_DEFAULT_TARGET
 
 	# TPROXY
-	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip $REMOTE_ADDR --on-port $REMOTE_PORT --tproxy-mark 1
-	-A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip $UDP_REMOTE_ADDR --on-port $UDP_REMOTE_PORT --tproxy-mark 1
+	# not compatable ipv6 now!
+	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $REMOTE_PORT --tproxy-mark 1
+	-A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip 127.0.0.1 --on-port $UDP_REMOTE_PORT --tproxy-mark 1
 
 	COMMIT
 	EOF
@@ -228,16 +230,8 @@ parse_args() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      -r|--remote)
-        REMOTE_ADDR="$2"
-        shift 2
-        ;;
       -p|--port)
         REMOTE_PORT="$2"
-        shift 2
-        ;;
-      -R|--udp-remote)
-        UDP_REMOTE_ADDR="$2"
         shift 2
         ;;
       -P|--udp-port)
