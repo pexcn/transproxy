@@ -11,7 +11,7 @@
 # TODO:
 #   1. Check OUTPUT chain should use -A ... or -I, which better?
 
-TRANSPROXY_VERSION=0.1.0
+TRANSPROXY_VERSION=0.1.1
 
 _add_prefix() {
   sed "s/^/$1/"
@@ -26,8 +26,13 @@ _remove_comment() {
 }
 
 _split_by_space() {
-  # TODO: echo "$1" | tr ',' ' '
-  tr ',' ' '
+  [ -n "$1" ] || return 0
+  echo "$1" | tr ',' ' '
+}
+
+_splice_content() {
+  [ -n "$1" ] || return 0
+  for file in $(_split_by_space "$1"); do cat $file done
 }
 
 _apply_sysctl() {
@@ -76,10 +81,28 @@ _get_reserved_ipv6() {
 	EOF
 }
 
+_get_special_ipv4() {
+  echo $SERVERS | tr ',' '\n'
+}
+
+_get_special_ipv6() {
+
+}
+
 #log() {
 #  # 1:alert, 2:crit, 3:err, 4:warn, 5:notice, 6:info, 7:debug, 8:emerg
 #  logger -st transproxy[$$] -p $1 $2
 #}
+
+generate_ipset_rules() {
+  _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_direct '
+  _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_proxy '
+  _splice_content $SRC_CHECKDST_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_checkdst '
+  _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_direct '
+  _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_proxy '
+  _get_reserved_ipv4 | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_special '
+  _get_special_ipv4 | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_special '
+}
 
 fix_sysctl() {
   # reference: https://nobb.site/2022/02/18/0x72/
@@ -113,12 +136,7 @@ init_ipset() {
 	create transproxy_dst_direct hash:net hashsize 64 family inet
 	create transproxy_dst_proxy hash:net hashsize 64 family inet
 	create transproxy_dst_special hash:net hashsize 64 family inet
-	$(cat $(echo $SRC_DIRECT_FILES | _split_by_space) | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_direct ')
-	$(cat $(echo $SRC_PROXY_FILES | _split_by_space) | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_proxy ')
-	$(cat $(echo $SRC_CHECKDST_FILES | _split_by_space) | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_checkdst ')
-	$(cat $(echo $DST_DIRECT_FILES | _split_by_space) | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_direct ')
-	$(cat $(echo $DST_PROXY_FILES | _split_by_space) | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_proxy ')
-	$(_get_reserved_ipv4 | _add_prefix 'add transproxy_dst_special ')
+	$(generate_ipset_rules)
 	EOF
 }
 
@@ -159,7 +177,7 @@ apply_transproxy_rules() {
   if [ -z "$INTERFACES" ]; then
     iptables -t mangle -I PREROUTING 1 -j TRANSPROXY_SRC_PREPARE
   else
-    for interface in $INTERFACES; do
+    for interface in $(_split_by_space $INTERFACES); do
       iptables -t mangle -I PREROUTING 1 -i $interface -j TRANSPROXY_SRC_PREPARE
     done
   fi
@@ -220,24 +238,27 @@ EOF
 }
 
 parse_args() {
-  SRC_DIRECT_FILES=/etc/transproxy/src-direct.txt
-  SRC_PROXY_FILES=/etc/transproxy/src-proxy.txt
-  SRC_CHECKDST_FILES=/etc/transproxy/src-checkdst.txt
-  DST_DIRECT_FILES=/etc/transproxy/dst-direct.txt
-  DST_PROXY_FILES=/etc/transproxy/dst-proxy.txt
   SRC_DEFAULT_TARGET=TRANSPROXY_DST_AC
   DST_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      -p|--port)
-        REMOTE_PORT="$2"
+      -p|--tcp-port)
+        TCP_PORT="$2"
         shift 2
         ;;
       -P|--udp-port)
-        UDP_REMOTE_PORT="$2"
+        UDP_PORT="$2"
         shift 2
         ;;
+      -s|--server)
+        SERVERS="$2"
+        shift 2
+        ;;
+#      -S|--ipv6-server)
+#        IPV6_SERVERS="$2"
+#        shift 2
+#        ;;
       --src-direct)
         SRC_DIRECT_FILES="$2"
         shift 2
@@ -265,6 +286,10 @@ parse_args() {
       --disable-ipv6)
         DISABLE_IPV6=1
         shift 1
+        ;;
+      -m|--mark)
+        MATCH_MARK="$2"
+        shift 2
         ;;
       -f|--flush)
         flush_rules
