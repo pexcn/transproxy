@@ -11,7 +11,7 @@
 # TODO:
 #   1. Check OUTPUT chain should use -A ... or -I, which better?
 
-TRANSPROXY_VERSION=0.1.1
+TRANSPROXY_VERSION=0.1.2
 
 _add_prefix() {
   sed "s/^/$1/"
@@ -32,7 +32,7 @@ _split_by_space() {
 
 _splice_content() {
   [ -n "$1" ] || return 0
-  for file in $(_split_by_space "$1"); do cat $file done
+  for file in $(_split_by_space "$1"); do cat $file; done
 }
 
 _apply_sysctl() {
@@ -86,7 +86,7 @@ _get_special_ipv4() {
 }
 
 _get_special_ipv6() {
-
+  echo TODO
 }
 
 #log() {
@@ -166,8 +166,8 @@ create_transproxy_chain() {
 
 	# TPROXY
 	# not compatable ipv6 now!
-	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $REMOTE_PORT --tproxy-mark 1
-	-A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip 127.0.0.1 --on-port $UDP_REMOTE_PORT --tproxy-mark 1
+	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $TCP_PORT --tproxy-mark 1
+	-A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip 127.0.0.1 --on-port $UDP_PORT --tproxy-mark 1
 
 	COMMIT
 	EOF
@@ -192,19 +192,13 @@ init_iptables() {
   if [ -n "$SELF_PROXY" ]; then
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
+    #iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -j RETURN -m mark --mark 0xff
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp -j MARK --set-mark 1
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -p tcp -j MARK --set-mark 1
+    #iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -j $DST_DEFAULT_TARGET
     iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
   fi
-
-  ## TODO: refine by https://github.com/openwrt/packages/blob/e60310eb2ebf256efb60c6fb6841c3edb30467dc/net/shadowsocks-libev/files/ss-rules
-  #if [ "$SELF_PROXY" = 1 ]; then
-  #  iptables -t nat -N TRANSPROXY_DST_PREPARE
-  #  iptables -t nat -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
-  #  iptables -t nat -A TRANSPROXY_DST_PREPARE -p tcp $IPTABLES_EXTRA_ARGS -j $DST_DEFAULT_TARGET
-  #  iptables -t nat -I OUTPUT 1 -p tcp -j TRANSPROXY_DST_PREPARE
-  #fi
 }
 
 #init_iptables_udp() {
@@ -255,10 +249,6 @@ parse_args() {
         SERVERS="$2"
         shift 2
         ;;
-#      -S|--ipv6-server)
-#        IPV6_SERVERS="$2"
-#        shift 2
-#        ;;
       --src-direct)
         SRC_DIRECT_FILES="$2"
         shift 2
@@ -288,7 +278,11 @@ parse_args() {
         shift 1
         ;;
       -m|--mark)
-        MATCH_MARK="$2"
+        MARK="$2"
+        shift 2
+        ;;
+      -e|--extra)
+        IPTABLES_EXTRA_ARGS="$2"
         shift 2
         ;;
       -f|--flush)
@@ -300,7 +294,7 @@ parse_args() {
         exit 0
         ;;
       *)
-        echo "unknown option $1"
+        echo "Unknown option $1"
         exit 1
         ;;
     esac
