@@ -193,28 +193,13 @@ init_iptables() {
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
     #iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -j $SRC_DEFAULT_TARGET
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -j RETURN -m mark --mark 0xff
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp -j MARK --set-mark 1
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -p tcp -j MARK --set-mark 1
-    #iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -j $DST_DEFAULT_TARGET
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp -j MARK --set-mark 1
     iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
   fi
 }
-
-#init_iptables_udp() {
-#  # TODO: refine by https://github.com/openwrt/packages/blob/e60310eb2ebf256efb60c6fb6841c3edb30467dc/net/shadowsocks-libev/files/ss-rules
-#  if [ "$SELF_PROXY" = 1 ]; then
-#    iptables -t mangle -N TRANSPROXY_DST_PREPARE
-#    iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special -j RETURN
-#    iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
-#    if [ "$DST_DEFAULT_TARGET" = "TRANSPROXY_DST_AC" ]; then
-#      iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
-#    fi
-#    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp $IPTABLES_EXTRA_ARGS -j MARK --set-mark 1
-#    iptables -t mangle -I OUTPUT 1 -p udp -j TRANSPROXY_DST_PREPARE
-#  fi
-#  return $?
-#}
 
 print_usage() {
   # TODO
