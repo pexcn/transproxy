@@ -11,7 +11,7 @@
 # TODO:
 #   1. Check OUTPUT chain should use -A ... or -I, which better?
 
-TRANSPROXY_VERSION=0.1.2
+TRANSPROXY_VERSION=0.1.3
 
 _add_prefix() {
   sed "s/^/$1/"
@@ -192,11 +192,19 @@ init_iptables() {
   if [ -n "$SELF_PROXY" ]; then
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
-    #iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -j $SRC_DEFAULT_TARGET
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE -j RETURN -m mark --mark 0xff
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p tcp -j MARK --set-mark 1
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp -j MARK --set-mark 1
+
+    # if dst target == proxy, need this line
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
+
+    # if dst target == direct, need this line
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
+
+    # if match mark ...
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark 0xff -j RETURN
+
+    # if dst target == ? ...
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p udp -j MARK --set-mark 1
     iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
   fi
 }
@@ -252,6 +260,24 @@ parse_args() {
         ;;
       --dst-proxy)
         DST_PROXY_FILES="$2"
+        shift 2
+        ;;
+      --src-target)
+        case "$2" in
+          direct|DIRECT) SRC_DEFAULT_TARGET=RETURN;;
+          proxy|PROXY) SRC_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD;;
+          auto|AUTO) SRC_DEFAULT_TARGET=$SRC_DEFAULT_TARGET;;
+          *) echo "--src-target can only be specified with: DIRECT, PROXY, AUTO."; exit 1;;
+        esac
+        shift 2
+        ;;
+      --dst-target)
+        case "$2" in
+          direct|DIRECT) DST_DEFAULT_TARGET=RETURN;;
+          proxy|PROXY) DST_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD;;
+          auto|AUTO) DST_DEFAULT_TARGET=$DST_DEFAULT_TARGET;;
+          *) echo "--dst-target can only be specified with: DIRECT, PROXY."; exit 1;;
+        esac
         shift 2
         ;;
       --self-proxy)
