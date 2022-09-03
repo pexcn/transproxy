@@ -11,7 +11,7 @@
 # TODO:
 #   1. Check OUTPUT chain should use -A ... or -I, which better?
 
-TRANSPROXY_VERSION=0.1.4
+TRANSPROXY_VERSION=0.1.5
 
 _add_prefix() {
   sed "s/^/$1/"
@@ -193,12 +193,10 @@ init_iptables() {
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
 
-    # make effect `transproxy_dst_direct` in non-DIRECT mode
-    if [ "$DST_DEFAULT_TARGET" != "RETURN" ]; then
+    if [ "$DST_DEFAULT_TARGET" = "TRANSPROXY_DST_FORWARD" ]; then
       iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
     fi
 
-    # make effect `transproxy_dst_proxy` in DIRECT mode
     if [ "$DST_DEFAULT_TARGET" = "RETURN" ]; then
       iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
     fi
