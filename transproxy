@@ -193,18 +193,11 @@ init_iptables() {
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
 
-    if [ "$DST_DEFAULT_TARGET" = "TRANSPROXY_DST_FORWARD" ]; then
-      iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
-    fi
-
-    if [ "$DST_DEFAULT_TARGET" = "RETURN" ]; then
-      iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
-    fi
+    [ "$DST_DEFAULT_TARGET" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
+    [ "$DST_DEFAULT_TARGET" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
 
     # https://github.com/v2ray/v2ray-core/issues/2621
-    if [ -n "$MATCH_MARK" ]; then
-      iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
-    fi
+    [ -z "$MATCH_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
 
     # only makes sense in non-DIRECT mode
     if [ "$DST_DEFAULT_TARGET" != "RETURN" ]; then
