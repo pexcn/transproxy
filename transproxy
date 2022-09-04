@@ -97,7 +97,7 @@ _get_special_ipv6() {
 generate_ipset_rules() {
   _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_direct '
   _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_proxy '
-  _splice_content $SRC_CHECKDST_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_checkdst '
+  _splice_content $SRC_NORMAL_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_src_normal '
   _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_direct '
   _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_proxy '
   _get_reserved_ipv4 | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_special '
@@ -132,7 +132,7 @@ init_ipset() {
   ipset -exist restore <<- EOF
 	create transproxy_src_direct hash:ip hashsize 64 family inet
 	create transproxy_src_proxy hash:ip hashsize 64 family inet
-	create transproxy_src_checkdst hash:ip hashsize 64 family inet
+	create transproxy_src_normal hash:ip hashsize 64 family inet
 	create transproxy_dst_direct hash:net hashsize 64 family inet
 	create transproxy_dst_proxy hash:net hashsize 64 family inet
 	create transproxy_dst_special hash:net hashsize 64 family inet
@@ -156,7 +156,7 @@ create_transproxy_chain() {
 	# SRC
 	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_direct src -j RETURN
 	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_proxy src -j TRANSPROXY_DST_FORWARD
-	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_checkdst src -j TRANSPROXY_DST_AC
+	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_normal src -j TRANSPROXY_DST_AC
 	-A TRANSPROXY_SRC_AC -j $SRC_DEFAULT
 
 	# DST
@@ -250,8 +250,8 @@ parse_args() {
         SRC_PROXY_FILES="$2"
         shift 2
         ;;
-      --src-checkdst)
-        SRC_CHECKDST_FILES="$2"
+      --src-normal)
+        SRC_NORMAL_FILES="$2"
         shift 2
         ;;
       --dst-direct)
