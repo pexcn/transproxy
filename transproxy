@@ -11,7 +11,22 @@
 # TODO:
 #   1. Check OUTPUT chain should use -A ... or -I, which better?
 
-TRANSPROXY_VERSION=0.1.5
+TRANSPROXY_VERSION=0.1.6
+
+_print_usage() {
+  # TODO
+  cat << EOF
+transproxy $TRANSPROXY_VERSION
+A bridge of linux and transparent proxy.
+
+USAGE:
+    $0 [OPTIONS]
+
+OPTIONS:
+    -f, --flush    Flush iptables, ipset then exit
+    -h, --help     Show this help message then exit
+EOF
+}
 
 _add_prefix() {
   sed "s/^/$1/"
@@ -85,9 +100,9 @@ _get_special_ipv4() {
   echo $SERVERS | tr ',' '\n'
 }
 
-_get_special_ipv6() {
-  echo TODO
-}
+# _get_special_ipv6() {
+#   echo TODO
+# }
 
 #log() {
 #  # 1:alert, 2:crit, 3:err, 4:warn, 5:notice, 6:info, 7:debug, 8:emerg
@@ -102,42 +117,6 @@ generate_ipset_rules() {
   _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_proxy '
   _get_reserved_ipv4 | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_special '
   _get_special_ipv4 | _remove_empty | _remove_comment | _add_prefix 'add transproxy_dst_special '
-}
-
-fix_sysctl() {
-  # reference: https://nobb.site/2022/02/18/0x72/
-  _apply_sysctl net.bridge.bridge-nf-call-iptables 0
-  [ "$DISABLE_IPV6" = 1 ] || _apply_sysctl net.bridge.bridge-nf-call-ip6tables 0
-}
-
-flush_rules() {
-  iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
-
-  ip rule del fwmark 1 lookup 100 2>/dev/null || true
-  ip route del local default dev lo table 100 2>/dev/null || true
-  ip route flush table 100 2>/dev/null || true
-
-  for name in $(ipset -n list | grep "transproxy_"); do
-    ipset flush $name 2>/dev/null || true
-    ipset destroy $name 2>/dev/null || true
-  done
-}
-
-init_route() {
-  ip rule add fwmark 1 lookup 100
-  ip route add local default dev lo table 100
-}
-
-init_ipset() {
-  ipset -exist restore <<- EOF
-	create transproxy_src_direct hash:ip hashsize 64 family inet
-	create transproxy_src_proxy hash:ip hashsize 64 family inet
-	create transproxy_src_normal hash:ip hashsize 64 family inet
-	create transproxy_dst_direct hash:net hashsize 64 family inet
-	create transproxy_dst_proxy hash:net hashsize 64 family inet
-	create transproxy_dst_special hash:net hashsize 64 family inet
-	$(generate_ipset_rules)
-	EOF
 }
 
 create_transproxy_chain() {
@@ -183,45 +162,67 @@ apply_transproxy_rules() {
   fi
 }
 
+apply_self_proxy_rules() {
+  iptables -t mangle -N TRANSPROXY_DST_PREPARE
+  iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
+
+  [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
+  [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
+
+  # reference: https://github.com/v2ray/v2ray-core/issues/2621
+  [ -z "$MATCH_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
+
+  # only makes sense in non-DIRECT mode
+  if [ "$DST_DEFAULT" != "RETURN" ]; then
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p udp -j MARK --set-mark 1
+  fi
+
+  iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
+}
+
+fix_sysctl() {
+  # reference: https://nobb.site/2022/02/18/0x72/
+  _apply_sysctl net.bridge.bridge-nf-call-iptables 0
+  [ "$DISABLE_IPV6" = 1 ] || _apply_sysctl net.bridge.bridge-nf-call-ip6tables 0
+}
+
+flush_rules() {
+  iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
+
+  ip rule del fwmark 1 lookup 100 2>/dev/null
+  ip route del local default dev lo table 100 2>/dev/null
+  ip route flush table 100 2>/dev/null
+
+  for name in $(ipset -n list | grep "transproxy_"); do
+    ipset flush $name 2>/dev/null
+    ipset destroy $name 2>/dev/null
+  done
+}
+
+init_route() {
+  ip rule add fwmark 1 lookup 100
+  ip route add local default dev lo table 100
+}
+
+init_ipset() {
+  ipset -exist restore <<- EOF
+	create transproxy_src_direct hash:ip hashsize 64 family inet
+	create transproxy_src_proxy hash:ip hashsize 64 family inet
+	create transproxy_src_normal hash:ip hashsize 64 family inet
+	create transproxy_dst_direct hash:net hashsize 64 family inet
+	create transproxy_dst_proxy hash:net hashsize 64 family inet
+	create transproxy_dst_special hash:net hashsize 64 family inet
+	$(generate_ipset_rules)
+	EOF
+}
+
 init_iptables() {
   # create common transproxy chain for mangle table, it's required for both tcp and udp.
   create_transproxy_chain
   # jump in from PREROUTING chain, make it works.
   apply_transproxy_rules
-
-  if [ -n "$SELF_PROXY" ]; then
-    iptables -t mangle -N TRANSPROXY_DST_PREPARE
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
-
-    [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
-    [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
-
-    # https://github.com/v2ray/v2ray-core/issues/2621
-    [ -z "$MATCH_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
-
-    # only makes sense in non-DIRECT mode
-    if [ "$DST_DEFAULT" != "RETURN" ]; then
-      iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p tcp -j MARK --set-mark 1
-      iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p udp -j MARK --set-mark 1
-    fi
-
-    iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
-  fi
-}
-
-print_usage() {
-  # TODO
-  cat << EOF
-transproxy $TRANSPROXY_VERSION
-A bridge of linux and transparent proxy.
-
-USAGE:
-    $0 [OPTIONS]
-
-OPTIONS:
-    -f, --flush    Flush iptables, ipset then exit
-    -h, --help     Show this help message then exit
-EOF
+  [ -z "$SELF_PROXY" ] || apply_self_proxy_rules
 }
 
 parse_args() {
@@ -266,8 +267,8 @@ parse_args() {
         case "$2" in
           direct|DIRECT) SRC_DEFAULT=RETURN;;
           proxy|PROXY) SRC_DEFAULT=TRANSPROXY_DST_FORWARD;;
-          auto|AUTO) SRC_DEFAULT=$SRC_DEFAULT;;
-          *) echo "--src-default can only be specified with: DIRECT, PROXY, AUTO."; exit 1;;
+          normal|NORMAL) SRC_DEFAULT=TRANSPROXY_DST_AC;;
+          *) echo "--src-default can only be specified with: DIRECT, PROXY, NORMAL."; exit 1;;
         esac
         shift 2
         ;;
@@ -275,7 +276,6 @@ parse_args() {
         case "$2" in
           direct|DIRECT) DST_DEFAULT=RETURN;;
           proxy|PROXY) DST_DEFAULT=TRANSPROXY_DST_FORWARD;;
-          auto|AUTO) DST_DEFAULT=$DST_DEFAULT;;
           *) echo "--dst-default can only be specified with: DIRECT, PROXY."; exit 1;;
         esac
         shift 2
@@ -301,7 +301,7 @@ parse_args() {
         exit 0
         ;;
       -h|--help)
-        print_usage
+        _print_usage
         exit 0
         ;;
       *)
@@ -315,6 +315,6 @@ parse_args() {
 parse_args "$@"
 fix_sysctl
 flush_rules
-init_ipset
 init_route
+init_ipset
 init_iptables
