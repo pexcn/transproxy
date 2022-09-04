@@ -157,12 +157,12 @@ create_transproxy_chain() {
 	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_direct src -j RETURN
 	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_proxy src -j TRANSPROXY_DST_FORWARD
 	-A TRANSPROXY_SRC_AC -m set --match-set transproxy_src_checkdst src -j TRANSPROXY_DST_AC
-	-A TRANSPROXY_SRC_AC -j $SRC_DEFAULT_TARGET
+	-A TRANSPROXY_SRC_AC -j $SRC_DEFAULT
 
 	# DST
 	-A TRANSPROXY_DST_AC -m set --match-set transproxy_dst_direct dst -j RETURN
 	-A TRANSPROXY_DST_AC -m set --match-set transproxy_dst_proxy dst -j TRANSPROXY_DST_FORWARD
-	-A TRANSPROXY_DST_AC -j $DST_DEFAULT_TARGET
+	-A TRANSPROXY_DST_AC -j $DST_DEFAULT
 
 	# TPROXY
 	# not compatable ipv6 now!
@@ -193,14 +193,14 @@ init_iptables() {
     iptables -t mangle -N TRANSPROXY_DST_PREPARE
     iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_special dst -j RETURN
 
-    [ "$DST_DEFAULT_TARGET" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
-    [ "$DST_DEFAULT_TARGET" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
+    [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set transproxy_dst_direct dst -j RETURN
+    [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -m set --match-set transproxy_dst_proxy dst -j MARK --set-mark 1
 
     # https://github.com/v2ray/v2ray-core/issues/2621
     [ -z "$MATCH_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
 
     # only makes sense in non-DIRECT mode
-    if [ "$DST_DEFAULT_TARGET" != "RETURN" ]; then
+    if [ "$DST_DEFAULT" != "RETURN" ]; then
       iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p tcp -j MARK --set-mark 1
       iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPTABLES_EXTRA_ARGS -p udp -j MARK --set-mark 1
     fi
@@ -225,8 +225,8 @@ EOF
 }
 
 parse_args() {
-  SRC_DEFAULT_TARGET=TRANSPROXY_DST_AC
-  DST_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD
+  SRC_DEFAULT=TRANSPROXY_DST_AC
+  DST_DEFAULT=TRANSPROXY_DST_FORWARD
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -262,21 +262,21 @@ parse_args() {
         DST_PROXY_FILES="$2"
         shift 2
         ;;
-      --src-target)
+      --src-default)
         case "$2" in
-          direct|DIRECT) SRC_DEFAULT_TARGET=RETURN;;
-          proxy|PROXY) SRC_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD;;
-          auto|AUTO) SRC_DEFAULT_TARGET=$SRC_DEFAULT_TARGET;;
-          *) echo "--src-target can only be specified with: DIRECT, PROXY, AUTO."; exit 1;;
+          direct|DIRECT) SRC_DEFAULT=RETURN;;
+          proxy|PROXY) SRC_DEFAULT=TRANSPROXY_DST_FORWARD;;
+          auto|AUTO) SRC_DEFAULT=$SRC_DEFAULT;;
+          *) echo "--src-default can only be specified with: DIRECT, PROXY, AUTO."; exit 1;;
         esac
         shift 2
         ;;
-      --dst-target)
+      --dst-default)
         case "$2" in
-          direct|DIRECT) DST_DEFAULT_TARGET=RETURN;;
-          proxy|PROXY) DST_DEFAULT_TARGET=TRANSPROXY_DST_FORWARD;;
-          auto|AUTO) DST_DEFAULT_TARGET=$DST_DEFAULT_TARGET;;
-          *) echo "--dst-target can only be specified with: DIRECT, PROXY."; exit 1;;
+          direct|DIRECT) DST_DEFAULT=RETURN;;
+          proxy|PROXY) DST_DEFAULT=TRANSPROXY_DST_FORWARD;;
+          auto|AUTO) DST_DEFAULT=$DST_DEFAULT;;
+          *) echo "--dst-default can only be specified with: DIRECT, PROXY."; exit 1;;
         esac
         shift 2
         ;;
