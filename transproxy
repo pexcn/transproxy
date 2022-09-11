@@ -8,7 +8,10 @@
 # See /LICENSE for more information.
 #
 
-TRANSPROXY_VERSION=0.1.9
+TRANSPROXY_VERSION=0.2.0
+
+CODE_SYSTEM_NOT_REQUIRED=1
+CODE_WRONG_OPTION=2
 
 _print_usage() {
   # TODO
@@ -207,23 +210,39 @@ apply_self_proxy_rules() {
   iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
 }
 
-fix_sysctl() {
+prepare_environment() {
+  # check environment
+  modinfo xt_TPROXY &>/dev/null || { error "xt_TPROXY kernel module is not supported."; exit $CODE_SYSTEM_NOT_REQUIRED; }
+  command -v ip >/dev/null || { error "ip command not found."; exit $CODE_SYSTEM_NOT_REQUIRED; }
+  command -v ipset >/dev/null || { error "ipset command not found."; exit $CODE_SYSTEM_NOT_REQUIRED; }
+  command -v iptables >/dev/null || { error "iptables command not found."; exit $CODE_SYSTEM_NOT_REQUIRED; }
+  [ "$DISABLE_IPV6" = 1 ] || command -v ip6tables >/dev/null || { error "ip6tables command not found."; exit $CODE_SYSTEM_NOT_REQUIRED; }
+
+  # fix environment
   # reference: https://nobb.site/2022/02/18/0x72/
   _apply_sysctl net.bridge.bridge-nf-call-iptables 0
-  [ "$DISABLE_IPV6" = 1 ] || _apply_sysctl net.bridge.bridge-nf-call-ip6tables 0
+  warn "TPROXY requires net.bridge.bridge-nf-call-iptables=0, applied."
+  [ "$DISABLE_IPV6" = 1 ] || {
+    _apply_sysctl net.bridge.bridge-nf-call-ip6tables 0
+    warn "TPROXY requires net.bridge.bridge-nf-call-ip6tables=0, applied."
+  }
 }
 
 flush_rules() {
   iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
+  info "iptables rules flushed."
 
   ip rule del fwmark 1 lookup 100 2>/dev/null
   ip route del local default dev lo table 100 2>/dev/null
   ip route flush table 100 2>/dev/null
+  info "strategy route removed."
 
   for name in $(ipset -n list | grep "transproxy_"); do
     ipset flush $name 2>/dev/null
     ipset destroy $name 2>/dev/null
+    debug "ipset $name destroyed."
   done
+  info "ipsets destroyed".
 }
 
 init_ipset() {
@@ -295,7 +314,7 @@ parse_args() {
           direct|DIRECT) SRC_DEFAULT=RETURN;;
           proxy|PROXY) SRC_DEFAULT=TRANSPROXY_DST_FORWARD;;
           normal|NORMAL) SRC_DEFAULT=TRANSPROXY_DST_AC;;
-          *) echo "wrong option: $1 $2"; exit 1;;
+          *) error "wrong option: $1 $2"; exit $CODE_WRONG_OPTION;;
         esac
         shift 2
         ;;
@@ -303,7 +322,7 @@ parse_args() {
         case "$2" in
           direct|DIRECT) DST_DEFAULT=RETURN;;
           proxy|PROXY) DST_DEFAULT=TRANSPROXY_DST_FORWARD;;
-          *) echo "wrong option: $1 $2"; exit 1;;
+          *) error "wrong option: $1 $2"; exit $CODE_WRONG_OPTION;;
         esac
         shift 2
         ;;
@@ -336,15 +355,15 @@ parse_args() {
         exit 0
         ;;
       *)
-        echo "unknown option: $1"
-        exit 1
+        error "unknown option: $1"
+        exit $CODE_WRONG_OPTION
         ;;
     esac
   done
 }
 
 parse_args "$@"
-fix_sysctl
+prepare_environment
 flush_rules
 init_ipset
 init_route
