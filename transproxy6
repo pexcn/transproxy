@@ -8,6 +8,12 @@
 # See /LICENSE for more information.
 #
 
+# set aliases for code compatibility
+alias ip="ip -6"
+alias iptables=ip6tables
+alias iptables-save=ip6tables-save
+alias iptables-restore=ip6tables-restore
+
 TRANSPROXY_VERSION=0.2.1
 
 CODE_SYSTEM_NOT_REQUIRED=1
@@ -181,12 +187,6 @@ apply_self_proxy_rules() {
 }
 
 prepare_environment() {
-  # set aliases for code compatibility
-  alias ip="ip -6"
-  alias iptables=ip6tables
-  alias iptables-save=ip6tables-save
-  alias iptables-restore=ip6tables-restore
-
   # check environment
   modinfo xt_TPROXY &>/dev/null || { error "xt_TPROXY kernel module is not supported."; exit $CODE_SYSTEM_NOT_REQUIRED; }
   command -v ip >/dev/null || { error "ip command not found."; exit $CODE_SYSTEM_NOT_REQUIRED; }
