@@ -17,7 +17,7 @@ _print_usage() {
   # TODO
   cat << EOF
 transproxy $TRANSPROXY_VERSION
-A bridge of linux and ipv6 transparent proxy.
+A bridge of linux and transparent proxy.
 
 USAGE:
     ${0##*/} [OPTIONS]
