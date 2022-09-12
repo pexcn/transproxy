@@ -8,7 +8,7 @@
 # See /LICENSE for more information.
 #
 
-TRANSPROXY_VERSION=0.2.1
+TRANSPROXY_VERSION=0.2.2
 
 SRC_DIRECT=transproxy_src_direct
 SRC_PROXY=transproxy_src_proxy
@@ -55,7 +55,7 @@ _splice_content() {
 }
 
 _apply_sysctl() {
-  [ $(sysctl -n "$1") = "$2" ] || sysctl -w "$1"="$2"
+  [ $(sysctl -n "$1") != "$2" ] && sysctl -wq "$1"="$2"
 }
 
 _get_reserved_ip() {
@@ -199,7 +199,7 @@ prepare_environment() {
 
   # fix environment, reference: https://nobb.site/2022/02/18/0x72/
   _apply_sysctl net.bridge.bridge-nf-call-iptables 0
-  warn "TPROXY requires net.bridge.bridge-nf-call-iptables=0, applied."
+  [ "$?" != 0 ] || warn "TPROXY requires net.bridge.bridge-nf-call-iptables=0, applied."
 }
 
 flush_rules() {
@@ -317,7 +317,7 @@ parse_args() {
         shift 1
         ;;
       -f|--flush)
-        #prepare_env...
+        prepare_environment
         flush_rules
         exit 0
         ;;
