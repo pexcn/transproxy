@@ -8,7 +8,7 @@ A bridge of linux and transparent proxy.
 
 ## Credits
 
-The design idea was derived from ss-rules by [Jian Chang](mailto:aa65535@live.com) and [Yousong Zhou](mailto:yszhou4tech@gmail.com), thanks for their outstanding contribution to [FREEDOM](https://en.wikipedia.org/wiki/Liberty)!
+It's just a parody of the big guy's work, the design idea was derived from ss-rules by [Jian Chang](mailto:aa65535@live.com) and [Yousong Zhou](mailto:yszhou4tech@gmail.com), thanks for their outstanding contribution to [FREEDOM](https://en.wikipedia.org/wiki/Liberty)!
 
 - [@shadowsocks/luci-app-shadowsocks](https://github.com/shadowsocks/luci-app-shadowsocks)
 - [@openwrt/packages/net/shadowsocks-libev](https://github.com/openwrt/packages/blob/master/net/shadowsocks-libev)

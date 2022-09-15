@@ -8,7 +8,7 @@
 # See /LICENSE for more information.
 #
 
-TRANSPROXY_VERSION=0.2.2
+TRANSPROXY_VERSION=0.2.5
 
 SRC_DIRECT=transproxy_src_direct
 SRC_PROXY=transproxy_src_proxy
@@ -27,7 +27,7 @@ USAGE:
     ${0##*/} [OPTIONS]
 
 OPTIONS:
-    -f, --flush    Flush iptables, ipset then exit
+    -f, --flush    Flush transproxy rules then exit
     -h, --help     Show this help message then exit
 EOF
 }
@@ -83,7 +83,7 @@ _get_reserved_ip() {
 }
 
 _get_special_ip() {
-  echo $SERVERS | tr ',' '\n' | grep -Eo "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b"
+  echo $SERVER_IPS | tr ',' '\n' | grep -Eo "^([0-9]{1,3}\.){3}[0-9]{1,3}"
   ip route get 8.8.8.8 | sed 's/^.*src \([^ ]*\).*$/\1/;q'
 }
 
@@ -92,7 +92,7 @@ _get_time() {
 }
 
 debug() {
-  [ "$DEBUG" = 1 ] || return 0
+  [ "$VERBOSE" = 1 ] || return 0
   local time=$(_get_time)
   printf "[${time}] [DEBUG]: %s\n" "$*"
 }
@@ -145,12 +145,12 @@ create_transproxy_chain() {
 	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_DIRECT src -j RETURN
 	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_PROXY src -j TRANSPROXY_DST_FORWARD
 	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_NORMAL src -j TRANSPROXY_DST_AC
-	-A TRANSPROXY_SRC_AC -j $SRC_DEFAULT
+	-A TRANSPROXY_SRC_AC -j ${SRC_DEFAULT:=TRANSPROXY_DST_AC}
 
 	# DST
 	-A TRANSPROXY_DST_AC -m set --match-set $DST_DIRECT dst -j RETURN
 	-A TRANSPROXY_DST_AC -m set --match-set $DST_PROXY dst -j TRANSPROXY_DST_FORWARD
-	-A TRANSPROXY_DST_AC -j $DST_DEFAULT
+	-A TRANSPROXY_DST_AC -j ${DST_DEFAULT:=TRANSPROXY_DST_FORWARD}
 
 	# TPROXY
 	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $TCP_PORT --tproxy-mark 1
@@ -179,7 +179,7 @@ apply_self_proxy_rules() {
   [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -m set --match-set $DST_PROXY dst -j MARK --set-mark 1
 
   # avoid traffic loopback issues, reference: https://github.com/v2ray/v2ray-core/issues/2621
-  [ -z "$MATCH_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $MATCH_MARK -j RETURN
+  [ -z "$DIRECT_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $DIRECT_MARK -j RETURN
 
   # only makes sense in non-DIRECT mode
   if [ "$DST_DEFAULT" != "RETURN" ]; then
@@ -245,9 +245,7 @@ init_iptables() {
 }
 
 parse_args() {
-  SRC_DEFAULT=TRANSPROXY_DST_AC
-  DST_DEFAULT=TRANSPROXY_DST_FORWARD
-
+  ARGS_NUM="$#"
   while [ "$#" -gt 0 ]; do
     case "$1" in
       -t|--tcp-port)
@@ -257,10 +255,6 @@ parse_args() {
         ;;
       -u|--udp-port)
         UDP_PORT="$2"
-        shift 2
-        ;;
-      -s|--server)
-        SERVERS="$2"
         shift 2
         ;;
       --src-direct)
@@ -304,22 +298,29 @@ parse_args() {
         SELF_PROXY=1;
         shift 1
         ;;
+      -s|--server)
+        SERVER_IPS="$2"
+        shift 2
+        ;;
+      -i|--interface)
+        INTERFACES="$2"
+        shift 2
+        ;;
       -e|--extra)
         IPT_EXTRAS="$2"
         shift 2
         ;;
       -m|--mark)
-        MATCH_MARK="$2"
+        DIRECT_MARK="$2"
         shift 2
         ;;
       -v|--verbose)
-        DEBUG=1
+        VERBOSE=1
         shift 1
         ;;
       -f|--flush)
-        prepare_environment
-        flush_rules
-        exit 0
+        FLUSH=1
+        shift 1
         ;;
       -h|--help)
         _print_usage
@@ -331,6 +332,16 @@ parse_args() {
         ;;
     esac
   done
+
+  if [ -n "$FLUSH" ]; then
+    [ "$ARGS_NUM" = 1 ] || warn "Invalid arguments other than [-f|--flush]."
+    prepare_environment
+    flush_rules
+    exit 0
+  fi
+  [ -n "$TCP_PORT" ] || { error "[-t|--tcp-port] is required."; exit 2; }
+  ! [ -z "$SERVER_IPS" -a -z "$DIRECT_MARK" ] || { error "[-s|--server] or [-m|--mark] is required."; exit 2; }
+  ! [ -n "$SERVER_IPS" -a -n "$DIRECT_MARK" ] || warn "It is recommended to use one of [-s|--server] and [-m|--mark]."
 }
 
 parse_args "$@"
