@@ -18,7 +18,6 @@ DST_PROXY=transproxy_dst_proxy
 DST_SPECIAL=transproxy_dst_special
 
 _print_usage() {
-  # TODO
   cat << EOF
 transproxy $TRANSPROXY_VERSION
 A bridge of linux and transparent proxy.
@@ -27,8 +26,33 @@ USAGE:
     ${0##*/} [OPTIONS]
 
 OPTIONS:
-    -f, --flush    Flush transproxy rules then exit
-    -h, --help     Show this help message then exit
+    -t, --tcp-port       TCP transparent proxy port, support tproxy only.
+    -u, --udp-port       UDP transparent proxy port, support tproxy only.
+        --src-direct     Specify one or more source ip lists, outbound traffic from these ips
+                         will be directly connected.
+        --src-proxy      Specify one or more source ip lists, outbound traffic from these ips
+                         will be pass through proxy.
+        --src-normal     Specify one or more source ip lists, outbound traffic from these ips
+                         will decide whether to pass through proxy according to the destination
+                         ip lists.
+        --dst-direct     Specify one or more destination ip lists, these ips will be directly
+                         connected.
+        --dst-proxy      Specify one or more destination ip lists, these ips will be pass
+                         through proxy.
+        --src-default    Default action for inbound traffic, available values: DIRECT, PROXY, NORMAL.
+        --dst-default    Default action for outbound traffic, available values: DIRECT, PROXY.
+        --self-proxy     Make local traffic pass through proxy, default as gateway only.
+    -s, --server         Specify one or more ip addresses of the remote server, local and server
+                         traffic will be directly connected.
+    -i, --interface      Apply to specified network interface.
+    -e, --extra          The specified parameters will be append to iptables.
+    -m, --mark           Bypass outbound traffic with SO_MARK as specified value, it's a workaround
+                         when the remote server doesn't have a static ip address.
+                         [NOTE]: Not all clients support setting SO_MARK, and there may be
+                         performance issues.
+    -v, --verbose        Enable verbose logging.
+    -f, --flush          Flush transproxy rules then exit.
+    -h, --help           Show this help message then exit.
 EOF
 }
 
@@ -193,6 +217,7 @@ apply_self_proxy_rules() {
 prepare_environment() {
   # check environment
   modinfo xt_TPROXY &>/dev/null || { error "xt_TPROXY kernel module is not supported."; exit 1; }
+  modinfo xt_mark &>/dev/null || { error "xt_mark kernel module is not supported."; exit 1; }
   command -v ip >/dev/null || { error "ip command not found."; exit 1; }
   command -v ipset >/dev/null || { error "ipset command not found."; exit 1; }
   command -v iptables >/dev/null || { error "iptables command not found."; exit 1; }
@@ -204,12 +229,12 @@ prepare_environment() {
 
 flush_rules() {
   iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
-  info "iptables rules flushed."
+  info "iptables flushed."
 
   ip rule del fwmark 1 lookup 100 2>/dev/null
   ip route del local default dev lo table 100 2>/dev/null
   ip route flush table 100 2>/dev/null
-  info "strategy route removed."
+  info "route removed."
 
   for name in $(ipset -n list | grep "transproxy_"); do
     ipset flush $name 2>/dev/null
@@ -334,6 +359,7 @@ parse_args() {
   done
 
   if [ -n "$FLUSH" ]; then
+    # TODO: handle -f -v
     [ "$ARGS_NUM" = 1 ] || warn "Invalid arguments other than [-f|--flush]."
     prepare_environment
     flush_rules
