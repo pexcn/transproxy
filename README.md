@@ -4,7 +4,43 @@ A bridge of linux and transparent proxy.
 
 ## Usage
 
-// TODO.
+```sh
+root@OpenWrt:~# transproxy --help
+transproxy 0.2.5
+A bridge of linux and transparent proxy.
+
+USAGE:
+    transproxy [OPTIONS]
+
+OPTIONS:
+    -t, --tcp-port       TCP transparent proxy port, support tproxy only.
+    -u, --udp-port       UDP transparent proxy port, support tproxy only.
+        --src-direct     Specify one or more source ip lists, outbound traffic from these ips
+                         will be directly connected.
+        --src-proxy      Specify one or more source ip lists, outbound traffic from these ips
+                         will be pass through proxy.
+        --src-normal     Specify one or more source ip lists, outbound traffic from these ips
+                         will decide whether to pass through proxy according to the destination
+                         ip lists.
+        --dst-direct     Specify one or more destination ip lists, these ips will be directly
+                         connected.
+        --dst-proxy      Specify one or more destination ip lists, these ips will be pass
+                         through proxy.
+        --src-default    Default action for inbound traffic, available values: DIRECT, PROXY, NORMAL.
+        --dst-default    Default action for outbound traffic, available values: DIRECT, PROXY.
+        --self-proxy     Make local traffic pass through proxy, default as gateway only.
+    -s, --server         Specify one or more ip addresses of the remote server, local and server
+                         traffic will be directly connected.
+    -i, --interface      Apply to specified network interface.
+    -e, --extra          The specified parameters will be append to iptables.
+    -m, --mark           Bypass outbound traffic with SO_MARK as specified value, it's a workaround
+                         when the remote server doesn't have a static ip address.
+                         [NOTE]: Not all clients support setting SO_MARK, and there may be
+                         performance issues.
+    -v, --verbose        Enable verbose logging.
+    -f, --flush          Flush transproxy rules then exit.
+    -h, --help           Show this help message then exit.
+```
 
 ## Credits
 
