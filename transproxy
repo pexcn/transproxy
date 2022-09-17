@@ -182,14 +182,17 @@ create_transproxy_chain() {
 
 	COMMIT
 	EOF
+  debug "transproxy chain created."
 }
 
 apply_transproxy_rules() {
   if [ -z "$INTERFACES" ]; then
     iptables -t mangle -I PREROUTING 1 -j TRANSPROXY_SRC_PREPARE
+    debug "transproxy rules applied."
   else
     for interface in $(_split_by_space $INTERFACES); do
       iptables -t mangle -I PREROUTING 1 -i $interface -j TRANSPROXY_SRC_PREPARE
+      debug "transproxy rules apply to $interface interface."
     done
   fi
 }
@@ -212,6 +215,7 @@ apply_self_proxy_rules() {
   fi
 
   iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
+  debug "transproxy rules apply to self host."
 }
 
 prepare_environment() {
@@ -229,19 +233,21 @@ prepare_environment() {
 
 flush_rules() {
   iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
-  info "iptables flushed."
+  debug "iptables flushed."
 
   ip rule del fwmark 1 lookup 100 2>/dev/null
   ip route del local default dev lo table 100 2>/dev/null
   ip route flush table 100 2>/dev/null
-  info "route removed."
+  debug "routes removed."
 
   for name in $(ipset -n list | grep "transproxy_"); do
     ipset flush $name 2>/dev/null
     ipset destroy $name 2>/dev/null
     debug "ipset $name destroyed."
   done
-  info "ipsets destroyed".
+  debug "ipsets destroyed."
+
+  info "transproxy rules flushed."
 }
 
 init_ipset() {
@@ -254,11 +260,13 @@ init_ipset() {
 	create $DST_SPECIAL hash:net hashsize 64 family inet
 	$(generate_ipset_rules)
 	EOF
+  info "ipsets created."
 }
 
 init_route() {
   ip rule add fwmark 1 lookup 100
   ip route add local default dev lo table 100
+  info "routes added."
 }
 
 init_iptables() {
@@ -267,9 +275,11 @@ init_iptables() {
   # jump in from PREROUTING chain, make it works.
   apply_transproxy_rules
   [ -z "$SELF_PROXY" ] || apply_self_proxy_rules
+  info "iptables applied."
 }
 
 parse_args() {
+  local args="$@"
   local args_num="$#"
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -357,6 +367,24 @@ parse_args() {
         ;;
     esac
   done
+
+  debug "received arguments: $args"
+  [ -z "$TCP_PORT" ] || debug "TCP_PORT=$TCP_PORT"
+  [ -z "$UDP_PORT" ] || debug "UDP_PORT=$UDP_PORT"
+  [ -z "$SRC_DIRECT_FILES" ] || debug "SRC_DIRECT_FILES=$SRC_DIRECT_FILES"
+  [ -z "$SRC_PROXY_FILES" ] || debug "SRC_PROXY_FILES=$SRC_PROXY_FILES"
+  [ -z "$SRC_NORMAL_FILES" ] || debug "SRC_NORMAL_FILES=$SRC_NORMAL_FILES"
+  [ -z "$DST_DIRECT_FILES" ] || debug "DST_DIRECT_FILES=$DST_DIRECT_FILES"
+  [ -z "$DST_PROXY_FILES" ] || debug "DST_PROXY_FILES=$DST_PROXY_FILES"
+  [ -z "$SRC_DEFAULT" ] || debug "SRC_DEFAULT=$SRC_DEFAULT"
+  [ -z "$DST_DEFAULT" ] || debug "DST_DEFAULT=$DST_DEFAULT"
+  [ -z "$SELF_PROXY" ] || debug "SELF_PROXY=$SELF_PROXY"
+  [ -z "$SERVER_IPS" ] || debug "SERVER_IPS=$SERVER_IPS"
+  [ -z "$INTERFACES" ] || debug "INTERFACES=$INTERFACES"
+  [ -z "$IPT_EXTRAS" ] || debug "IPT_EXTRAS=$IPT_EXTRAS"
+  [ -z "$DIRECT_MARK" ] || debug "DIRECT_MARK=$DIRECT_MARK"
+  [ -z "$VERBOSE" ] || debug "VERBOSE=$VERBOSE"
+  [ -z "$FLUSH" ] || debug "FLUSH=$FLUSH"
 
   if [ -n "$FLUSH" ]; then
     [ "$args_num" = 1 ] || warn "invalid arguments other than [-f|--flush]."
