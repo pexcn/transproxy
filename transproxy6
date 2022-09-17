@@ -221,6 +221,14 @@ apply_self_proxy_rules() {
   debug "transproxy rules apply to self host."
 }
 
+apply_tcp_divert() {
+  iptables -t mangle -N TRANSPROXY_TCP_DIVERT
+  iptables -t mangle -A TRANSPROXY_TCP_DIVERT -j MARK --set-mark 1
+  iptables -t mangle -A TRANSPROXY_TCP_DIVERT -j ACCEPT
+  iptables -t mangle -I PREROUTING 1 -p tcp -m socket -j TRANSPROXY_TCP_DIVERT
+  debug "tcp divert rules optimized."
+}
+
 prepare_environment() {
   # check environment
   modinfo xt_TPROXY &>/dev/null || { error "xt_TPROXY kernel module is not supported."; exit 1; }
@@ -278,6 +286,7 @@ init_iptables() {
   # jump in from PREROUTING chain, make it works.
   apply_transproxy_rules
   [ -z "$SELF_PROXY" ] || apply_self_proxy_rules
+  apply_tcp_divert
   info "iptables applied."
 }
 
