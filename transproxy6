@@ -270,7 +270,7 @@ init_iptables() {
 }
 
 parse_args() {
-  ARGS_NUM="$#"
+  local args_num="$#"
   while [ "$#" -gt 0 ]; do
     case "$1" in
       -t|--tcp-port)
@@ -359,15 +359,14 @@ parse_args() {
   done
 
   if [ -n "$FLUSH" ]; then
-    # TODO: handle -f -v
-    [ "$ARGS_NUM" = 1 ] || warn "Invalid arguments other than [-f|--flush]."
+    [ "$args_num" = 1 ] || warn "Invalid arguments other than [-f|--flush]."
     prepare_environment
     flush_rules
     exit 0
   fi
   [ -n "$TCP_PORT" ] || { error "[-t|--tcp-port] is required."; exit 2; }
   ! [ -z "$SERVER_IPS" -a -z "$DIRECT_MARK" ] || { error "[-s|--server] or [-m|--mark] is required."; exit 2; }
-  ! [ -n "$SERVER_IPS" -a -n "$DIRECT_MARK" ] || warn "It is recommended to use one of [-s|--server] and [-m|--mark]."
+  ! [ -n "$SERVER_IPS" -a -n "$DIRECT_MARK" ] || warn "it is recommended to use one of [-s|--server] and [-m|--mark]."
 }
 
 parse_args "$@"
