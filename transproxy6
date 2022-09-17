@@ -16,6 +16,9 @@ alias iptables-restore=ip6tables-restore
 
 TRANSPROXY_VERSION=0.2.5
 
+TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
+TRANSPROXY_PREFIX_IPSET="transproxy6_"
+
 SRC_DIRECT=transproxy6_src_direct
 SRC_PROXY=transproxy6_src_proxy
 SRC_NORMAL=transproxy6_src_normal
@@ -232,7 +235,7 @@ prepare_environment() {
 }
 
 flush_rules() {
-  iptables-save --counters | grep -v "TRANSPROXY_" | iptables-restore --counters
+  iptables-save --counters | grep -v "$TRANSPROXY_PREFIX_IPTABLES" | iptables-restore --counters
   debug "iptables flushed."
 
   ip rule del fwmark 1 lookup 100 2>/dev/null
@@ -240,7 +243,7 @@ flush_rules() {
   ip route flush table 100 2>/dev/null
   debug "routes removed."
 
-  for name in $(ipset -n list | grep "transproxy6_"); do
+  for name in $(ipset -n list | grep "$TRANSPROXY_PREFIX_IPSET"); do
     ipset flush $name 2>/dev/null
     ipset destroy $name 2>/dev/null
     debug "ipset $name destroyed."
