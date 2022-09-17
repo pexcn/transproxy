@@ -19,12 +19,12 @@ TRANSPROXY_VERSION=0.2.5
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy6_"
 
-SRC_DIRECT=transproxy6_src_direct
-SRC_PROXY=transproxy6_src_proxy
-SRC_NORMAL=transproxy6_src_normal
-DST_DIRECT=transproxy6_dst_direct
-DST_PROXY=transproxy6_dst_proxy
-DST_SPECIAL=transproxy6_dst_special
+TRANSPROXY_SRC_DIRECT=transproxy6_src_direct
+TRANSPROXY_SRC_PROXY=transproxy6_src_proxy
+TRANSPROXY_SRC_NORMAL=transproxy6_src_normal
+TRANSPROXY_DST_DIRECT=transproxy6_dst_direct
+TRANSPROXY_DST_PROXY=transproxy6_dst_proxy
+TRANSPROXY_DST_SPECIAL=transproxy6_dst_special
 
 _print_usage() {
   cat << EOF
@@ -146,13 +146,13 @@ error() {
 }
 
 generate_ipset_rules() {
-  _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $SRC_DIRECT "
-  _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $SRC_PROXY "
-  _splice_content $SRC_NORMAL_FILES | _remove_empty | _remove_comment | _add_prefix "add $SRC_NORMAL "
-  _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $DST_DIRECT "
-  _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $DST_PROXY "
-  _get_reserved_ip | _remove_empty | _remove_comment | _add_prefix "add $DST_SPECIAL "
-  _get_special_ip | _remove_empty | _remove_comment | _add_prefix "add $DST_SPECIAL "
+  _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_DIRECT "
+  _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_PROXY "
+  _splice_content $SRC_NORMAL_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_NORMAL "
+  _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_DIRECT "
+  _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_PROXY "
+  _get_reserved_ip | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
+  _get_special_ip | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
 }
 
 create_transproxy_chain() {
@@ -165,18 +165,18 @@ create_transproxy_chain() {
 	:TRANSPROXY_DST_FORWARD - [0:0]
 
 	# PREPARE
-	-A TRANSPROXY_SRC_PREPARE -m set --match-set $DST_SPECIAL dst -j RETURN
+	-A TRANSPROXY_SRC_PREPARE -m set --match-set $TRANSPROXY_DST_SPECIAL dst -j RETURN
 	-A TRANSPROXY_SRC_PREPARE $IPT_EXTRAS -j TRANSPROXY_SRC_AC
 
 	# SRC
-	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_DIRECT src -j RETURN
-	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_PROXY src -j TRANSPROXY_DST_FORWARD
-	-A TRANSPROXY_SRC_AC -m set --match-set $SRC_NORMAL src -j TRANSPROXY_DST_AC
+	-A TRANSPROXY_SRC_AC -m set --match-set $TRANSPROXY_SRC_DIRECT src -j RETURN
+	-A TRANSPROXY_SRC_AC -m set --match-set $TRANSPROXY_SRC_PROXY src -j TRANSPROXY_DST_FORWARD
+	-A TRANSPROXY_SRC_AC -m set --match-set $TRANSPROXY_SRC_NORMAL src -j TRANSPROXY_DST_AC
 	-A TRANSPROXY_SRC_AC -j ${SRC_DEFAULT:=TRANSPROXY_DST_AC}
 
 	# DST
-	-A TRANSPROXY_DST_AC -m set --match-set $DST_DIRECT dst -j RETURN
-	-A TRANSPROXY_DST_AC -m set --match-set $DST_PROXY dst -j TRANSPROXY_DST_FORWARD
+	-A TRANSPROXY_DST_AC -m set --match-set $TRANSPROXY_DST_DIRECT dst -j RETURN
+	-A TRANSPROXY_DST_AC -m set --match-set $TRANSPROXY_DST_PROXY dst -j TRANSPROXY_DST_FORWARD
 	-A TRANSPROXY_DST_AC -j ${DST_DEFAULT:=TRANSPROXY_DST_FORWARD}
 
 	# TPROXY
@@ -202,11 +202,11 @@ apply_transproxy_rules() {
 
 apply_self_proxy_rules() {
   iptables -t mangle -N TRANSPROXY_DST_PREPARE
-  iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $DST_SPECIAL dst -j RETURN
+  iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $TRANSPROXY_DST_SPECIAL dst -j RETURN
 
   # negate matching in non-[DIRECT|PROXY] mode
-  [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $DST_DIRECT dst -j RETURN
-  [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -m set --match-set $DST_PROXY dst -j MARK --set-mark 1
+  [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $TRANSPROXY_DST_DIRECT dst -j RETURN
+  [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -m set --match-set $TRANSPROXY_DST_PROXY dst -j MARK --set-mark 1
 
   # avoid traffic loopback issues, reference: https://github.com/v2ray/v2ray-core/issues/2621
   [ -z "$DIRECT_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $DIRECT_MARK -j RETURN
@@ -255,12 +255,12 @@ flush_rules() {
 
 init_ipset() {
   ipset -exist restore <<- EOF
-	create $SRC_DIRECT hash:ip hashsize 64 family inet6
-	create $SRC_PROXY hash:ip hashsize 64 family inet6
-	create $SRC_NORMAL hash:ip hashsize 64 family inet6
-	create $DST_DIRECT hash:net hashsize 64 family inet6
-	create $DST_PROXY hash:net hashsize 64 family inet6
-	create $DST_SPECIAL hash:net hashsize 64 family inet6
+	create $TRANSPROXY_SRC_DIRECT hash:ip hashsize 64 family inet6
+	create $TRANSPROXY_SRC_PROXY hash:ip hashsize 64 family inet6
+	create $TRANSPROXY_SRC_NORMAL hash:ip hashsize 64 family inet6
+	create $TRANSPROXY_DST_DIRECT hash:net hashsize 64 family inet6
+	create $TRANSPROXY_DST_PROXY hash:net hashsize 64 family inet6
+	create $TRANSPROXY_DST_SPECIAL hash:net hashsize 64 family inet6
 	$(generate_ipset_rules)
 	EOF
   info "ipsets created."
