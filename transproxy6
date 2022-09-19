@@ -14,7 +14,7 @@ alias iptables=ip6tables
 alias iptables-save=ip6tables-save
 alias iptables-restore=ip6tables-restore
 
-TRANSPROXY_VERSION=0.2.7
+TRANSPROXY_VERSION=0.2.8
 
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy6_"
@@ -74,7 +74,11 @@ _remove_empty() {
 }
 
 _remove_comment() {
-  sed '/^#/ d'
+  sed '/^#/d'
+}
+
+_trim() {
+  awk '{$1=$1};1'
 }
 
 _split_by_space() {
@@ -146,13 +150,13 @@ error() {
 }
 
 generate_ipset_rules() {
-  _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_DIRECT "
-  _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_PROXY "
-  _splice_content $SRC_NORMAL_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_SRC_NORMAL "
-  _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_DIRECT "
-  _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_PROXY "
-  _get_reserved_ip | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
-  _get_special_ip | _remove_empty | _remove_comment | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
+  _splice_content $SRC_DIRECT_FILES | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_SRC_DIRECT "
+  _splice_content $SRC_PROXY_FILES | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_SRC_PROXY "
+  _splice_content $SRC_NORMAL_FILES | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_SRC_NORMAL "
+  _splice_content $DST_DIRECT_FILES | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_DST_DIRECT "
+  _splice_content $DST_PROXY_FILES | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_DST_PROXY "
+  _get_reserved_ip | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
+  _get_special_ip | _remove_empty | _remove_comment | _trim | _add_prefix "add $TRANSPROXY_DST_SPECIAL "
 }
 
 create_transproxy_chain() {
