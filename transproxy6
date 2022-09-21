@@ -14,7 +14,7 @@ alias iptables=ip6tables
 alias iptables-save=ip6tables-save
 alias iptables-restore=ip6tables-restore
 
-TRANSPROXY_VERSION=0.2.8
+TRANSPROXY_VERSION=0.2.9
 
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy6_"
@@ -235,8 +235,8 @@ apply_tcp_divert() {
 
 prepare_environment() {
   # check environment
-  modinfo xt_TPROXY &>/dev/null || { error "xt_TPROXY kernel module is not supported."; exit 1; }
-  modinfo xt_mark &>/dev/null || { error "xt_mark kernel module is not supported."; exit 1; }
+  modinfo xt_TPROXY &>/dev/null || lsmod | grep -q "^xt_TPROXY" || { error "xt_TPROXY kernel module is not supported."; exit 1; }
+  modinfo xt_mark &>/dev/null || lsmod | grep -q "^xt_mark" || { error "xt_mark kernel module is not supported."; exit 1; }
   command -v ip >/dev/null || { error "ip command not found."; exit 1; }
   command -v ipset >/dev/null || { error "ipset command not found."; exit 1; }
   command -v ip6tables >/dev/null || { error "ip6tables command not found."; exit 1; }
