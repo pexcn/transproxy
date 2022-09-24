@@ -8,7 +8,8 @@
 # See /LICENSE for more information.
 #
 
-TRANSPROXY_VERSION=0.2.10
+TRANSPROXY_NAME="${0##*/}"
+TRANSPROXY_VERSION=0.2.11
 
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy_"
@@ -22,11 +23,11 @@ TRANSPROXY_DST_SPECIAL=transproxy_dst_special
 
 _print_usage() {
   cat << EOF
-transproxy $TRANSPROXY_VERSION
+$TRANSPROXY_NAME $TRANSPROXY_VERSION
 A bridge of linux and transparent proxy.
 
 USAGE:
-    ${0##*/} [OPTIONS]
+    $TRANSPROXY_NAME [OPTIONS]
 
 OPTIONS:
     -t, --tcp-port       TCP transparent proxy port, support tproxy only.
@@ -54,7 +55,7 @@ OPTIONS:
                          [NOTE]: Not all clients support setting SO_MARK, and there may be
                          performance issues.
     -v, --verbose        Enable verbose logging.
-    -f, --flush          Flush transproxy rules then exit.
+    -f, --flush          Flush $TRANSPROXY_NAME rules then exit.
     -h, --help           Show this help message then exit.
 EOF
 }
@@ -189,17 +190,17 @@ create_transproxy_chain() {
 
 	COMMIT
 	EOF
-  debug "transproxy chain created."
+  debug "$TRANSPROXY_NAME chain created."
 }
 
 apply_transproxy_rules() {
   if [ -z "$INTERFACES" ]; then
     iptables -t mangle -I PREROUTING 1 -j TRANSPROXY_SRC_PREPARE
-    debug "transproxy rules applied."
+    debug "$TRANSPROXY_NAME rules applied."
   else
     for interface in $(_split_by_space $INTERFACES); do
       iptables -t mangle -I PREROUTING 1 -i $interface -j TRANSPROXY_SRC_PREPARE
-      debug "transproxy rules apply to $interface interface."
+      debug "$TRANSPROXY_NAME rules apply to $interface interface."
     done
   fi
 }
@@ -222,7 +223,7 @@ apply_self_proxy_rules() {
   fi
 
   iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
-  debug "transproxy rules apply to self host."
+  debug "$TRANSPROXY_NAME rules apply to self host."
 }
 
 apply_tcp_divert() {
@@ -262,7 +263,7 @@ flush_rules() {
   done
   debug "ipsets destroyed."
 
-  info "transproxy rules flushed."
+  info "$TRANSPROXY_NAME rules flushed."
 }
 
 init_ipset() {
