@@ -42,6 +42,11 @@ OPTIONS:
     -h, --help           Show this help message then exit.
 ```
 
+## Ports
+
+- [x] [OpenWrt version](https://github.com/pexcn/openwrt-transproxy)
+- [x] [Docker version](https://github.com/pexcn/docker-images/tree/master/utils/transproxy)
+
 ## Credits
 
 It's just a parody of the big guy's work, the design idea was derived from ss-rules by [Jian Chang](mailto:aa65535@live.com) and [Yousong Zhou](mailto:yszhou4tech@gmail.com), thanks for their outstanding contribution to [FREEDOM](https://en.wikipedia.org/wiki/Liberty)!
