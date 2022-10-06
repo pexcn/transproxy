@@ -211,15 +211,15 @@ apply_self_proxy_rules() {
 
   # negate matching in non-[DIRECT|PROXY] mode
   [ "$DST_DEFAULT" = "RETURN" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $TRANSPROXY_DST_DIRECT dst -j RETURN
-  [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -m set --match-set $TRANSPROXY_DST_PROXY dst -j MARK --set-mark 1
+  [ "$DST_DEFAULT" = "TRANSPROXY_DST_FORWARD" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m set --match-set $TRANSPROXY_DST_PROXY dst $IPT_EXTRAS -j MARK --set-mark 1
 
   # avoid traffic loopback issues, reference: https://github.com/v2ray/v2ray-core/issues/2621
   [ -z "$DIRECT_MARK" ] || iptables -t mangle -A TRANSPROXY_DST_PREPARE -m mark --mark $DIRECT_MARK -j RETURN
 
   # only makes sense in non-DIRECT mode
   if [ "$DST_DEFAULT" != "RETURN" ]; then
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -p tcp -j MARK --set-mark 1
-    iptables -t mangle -A TRANSPROXY_DST_PREPARE $IPT_EXTRAS -p udp -j MARK --set-mark 1
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p tcp $IPT_EXTRAS -j MARK --set-mark 1
+    iptables -t mangle -A TRANSPROXY_DST_PREPARE -p udp $IPT_EXTRAS -j MARK --set-mark 1
   fi
 
   iptables -t mangle -I OUTPUT 1 -j TRANSPROXY_DST_PREPARE
