@@ -185,12 +185,12 @@ create_transproxy_chain() {
 	-A TRANSPROXY_DST_AC -m set --match-set $TRANSPROXY_DST_PROXY dst -j TRANSPROXY_DST_FORWARD
 	-A TRANSPROXY_DST_AC -j ${DST_DEFAULT:=TRANSPROXY_DST_FORWARD}
 
-	# TPROXY
-	-A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip ::1 --on-port $TCP_PORT --tproxy-mark 1
-	-A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip ::1 --on-port $UDP_PORT --tproxy-mark 1
-
 	COMMIT
 	EOF
+
+  [ -z "$TCP_PORT" ] || iptables -t mangle -A TRANSPROXY_DST_FORWARD -p tcp -j TPROXY --on-ip ::1 --on-port "$TCP_PORT" --tproxy-mark 1
+  [ -z "$UDP_PORT" ] || iptables -t mangle -A TRANSPROXY_DST_FORWARD -p udp -j TPROXY --on-ip ::1 --on-port "$UDP_PORT" --tproxy-mark 1
+
   debug "$TRANSPROXY_NAME chain created."
 }
 
@@ -306,7 +306,6 @@ parse_args() {
     case "$1" in
       -t|--tcp-port)
         TCP_PORT="$2"
-        UDP_PORT="${UDP_PORT:-$TCP_PORT}"
         shift 2
         ;;
       -u|--udp-port)
@@ -413,9 +412,9 @@ parse_args() {
     flush_rules
     exit 0
   fi
-  [ -n "$TCP_PORT" ] || { error "[-t|--tcp-port] is required."; exit 2; }
+  ! [ -z "$TCP_PORT" -a -z "$UDP_PORT" ] || { error "[-t|--tcp-port] or [-u|--udp-port] is required."; exit 2; }
   ! [ -z "$SERVER_IPS" -a -z "$DIRECT_MARK" ] || { error "[-s|--server] or [-m|--mark] is required."; exit 2; }
-  ! [ -n "$SERVER_IPS" -a -n "$DIRECT_MARK" ] || warn "it is recommended to use one of [-s|--server] and [-m|--mark]."
+  ! [ -n "$SERVER_IPS" -a -n "$DIRECT_MARK" ] || warn "[-s|--server] and [-m|--mark] only recommend one of them."
 }
 
 parse_args "$@"
