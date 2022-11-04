@@ -6,7 +6,7 @@ A bridge of linux and transparent proxy.
 
 ```sh
 root@OpenWrt:~# transproxy --help
-transproxy 0.3.1
+transproxy 0.3.2
 A bridge of linux and transparent proxy.
 
 USAGE:

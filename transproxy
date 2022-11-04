@@ -9,7 +9,7 @@
 #
 
 TRANSPROXY_NAME="${0##*/}"
-TRANSPROXY_VERSION=0.3.1
+TRANSPROXY_VERSION=0.3.2
 
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy_"
@@ -389,25 +389,10 @@ parse_args() {
   done
 
   debug "received arguments: $args"
-  [ -z "$TCP_PORT" ] || debug "TCP_PORT=$TCP_PORT"
-  [ -z "$UDP_PORT" ] || debug "UDP_PORT=$UDP_PORT"
-  [ -z "$SRC_DIRECT_FILES" ] || debug "SRC_DIRECT_FILES=$SRC_DIRECT_FILES"
-  [ -z "$SRC_PROXY_FILES" ] || debug "SRC_PROXY_FILES=$SRC_PROXY_FILES"
-  [ -z "$SRC_NORMAL_FILES" ] || debug "SRC_NORMAL_FILES=$SRC_NORMAL_FILES"
-  [ -z "$DST_DIRECT_FILES" ] || debug "DST_DIRECT_FILES=$DST_DIRECT_FILES"
-  [ -z "$DST_PROXY_FILES" ] || debug "DST_PROXY_FILES=$DST_PROXY_FILES"
-  [ -z "$SRC_DEFAULT" ] || debug "SRC_DEFAULT=$SRC_DEFAULT"
-  [ -z "$DST_DEFAULT" ] || debug "DST_DEFAULT=$DST_DEFAULT"
-  [ -z "$SELF_PROXY" ] || debug "SELF_PROXY=$SELF_PROXY"
-  [ -z "$SERVER_IPS" ] || debug "SERVER_IPS=$SERVER_IPS"
-  [ -z "$INTERFACES" ] || debug "INTERFACES=$INTERFACES"
-  [ -z "$IPT_EXTRAS" ] || debug "IPT_EXTRAS=$IPT_EXTRAS"
-  [ -z "$DIRECT_MARK" ] || debug "DIRECT_MARK=$DIRECT_MARK"
-  [ -z "$VERBOSE" ] || debug "VERBOSE=$VERBOSE"
-  [ -z "$FLUSH" ] || debug "FLUSH=$FLUSH"
+  [ -z "$IPT_EXTRAS" ] || warn "this parameters will be passed to iptables: $IPT_EXTRAS"
 
   if [ -n "$FLUSH" ]; then
-    [ "$args_num" = 1 ] || warn "invalid arguments other than [-f|--flush]."
+    [ "$args_num" = 1 ] || warn "invalid arguments other than [-f|--flush] or [-v|--verbose]."
     prepare_environment
     flush_rules
     exit 0
