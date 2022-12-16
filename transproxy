@@ -24,7 +24,7 @@ TRANSPROXY_DST_PROXY=transproxy_dst_proxy
 TRANSPROXY_DST_SPECIAL=transproxy_dst_special
 
 _print_usage() {
-  cat << EOF
+  cat <<EOF
 $TRANSPROXY_NAME $TRANSPROXY_VERSION
 A bridge of linux and transparent proxy.
 
@@ -93,7 +93,7 @@ _apply_sysctl() {
 }
 
 _get_reserved_ip() {
-  cat <<- EOF
+  cat <<-EOF
 	0.0.0.0/8
 	10.0.0.0/8
 	100.64.0.0/10
@@ -163,7 +163,7 @@ generate_ipset_rules() {
 }
 
 create_transproxy_chain() {
-  iptables-restore -n <<- EOF
+  iptables-restore -n <<-EOF
 	*mangle
 
 	:TRANSPROXY_SRC_PREPARE - [0:0]
@@ -242,11 +242,26 @@ apply_tcp_divert() {
 
 prepare_environment() {
   # check environment
-  modinfo xt_TPROXY >/dev/null 2>&1 || { error "xt_TPROXY kernel module is not supported."; exit 1; }
-  modinfo xt_mark >/dev/null 2>&1 || { error "xt_mark kernel module is not supported."; exit 1; }
-  command -v ip >/dev/null || { error "ip command not found."; exit 1; }
-  command -v ipset >/dev/null || { error "ipset command not found."; exit 1; }
-  command -v iptables >/dev/null || { error "iptables command not found."; exit 1; }
+  modinfo xt_TPROXY >/dev/null 2>&1 || {
+    error "xt_TPROXY kernel module is not supported."
+    exit 1
+  }
+  modinfo xt_mark >/dev/null 2>&1 || {
+    error "xt_mark kernel module is not supported."
+    exit 1
+  }
+  command -v ip >/dev/null || {
+    error "ip command not found."
+    exit 1
+  }
+  command -v ipset >/dev/null || {
+    error "ipset command not found."
+    exit 1
+  }
+  command -v iptables >/dev/null || {
+    error "iptables command not found."
+    exit 1
+  }
 
   # fix environment, reference: https://nobb.site/2022/02/18/0x72/
   _apply_sysctl net.bridge.bridge-nf-call-iptables 0 && warn "TPROXY requires net.bridge.bridge-nf-call-iptables=0, applied."
@@ -272,7 +287,7 @@ flush_rules() {
 }
 
 init_ipset() {
-  ipset -exist restore <<- EOF
+  ipset -exist restore <<-EOF
 	create $TRANSPROXY_SRC_DIRECT hash:ip hashsize 64 family inet
 	create $TRANSPROXY_SRC_PROXY hash:ip hashsize 64 family inet
 	create $TRANSPROXY_SRC_NORMAL hash:ip hashsize 64 family inet
@@ -305,11 +320,11 @@ parse_args() {
   local args_num="$#"
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      -t|--tcp-port)
+      -t | --tcp-port)
         TCP_PORT="$2"
         shift 2
         ;;
-      -u|--udp-port)
+      -u | --udp-port)
         UDP_PORT="$2"
         shift 2
         ;;
@@ -335,50 +350,56 @@ parse_args() {
         ;;
       --src-default)
         case "$2" in
-          direct|DIRECT) SRC_DEFAULT=RETURN;;
-          proxy|PROXY) SRC_DEFAULT=TRANSPROXY_DST_FORWARD;;
-          normal|NORMAL) SRC_DEFAULT=TRANSPROXY_DST_AC;;
-          *) error "wrong option: $1 $2"; exit 2;;
+          direct | DIRECT) SRC_DEFAULT=RETURN ;;
+          proxy | PROXY) SRC_DEFAULT=TRANSPROXY_DST_FORWARD ;;
+          normal | NORMAL) SRC_DEFAULT=TRANSPROXY_DST_AC ;;
+          *)
+            error "wrong option: $1 $2"
+            exit 2
+            ;;
         esac
         shift 2
         ;;
       --dst-default)
         case "$2" in
-          direct|DIRECT) DST_DEFAULT=RETURN;;
-          proxy|PROXY) DST_DEFAULT=TRANSPROXY_DST_FORWARD;;
-          *) error "wrong option: $1 $2"; exit 2;;
+          direct | DIRECT) DST_DEFAULT=RETURN ;;
+          proxy | PROXY) DST_DEFAULT=TRANSPROXY_DST_FORWARD ;;
+          *)
+            error "wrong option: $1 $2"
+            exit 2
+            ;;
         esac
         shift 2
         ;;
       --self-proxy)
-        SELF_PROXY=1;
+        SELF_PROXY=1
         shift 1
         ;;
-      -s|--server)
+      -s | --server)
         SERVER_IPS="$2"
         shift 2
         ;;
-      -i|--interface)
+      -i | --interface)
         INTERFACES="$2"
         shift 2
         ;;
-      -e|--extra)
+      -e | --extra)
         IPT_EXTRAS="$2"
         shift 2
         ;;
-      -m|--mark)
+      -m | --mark)
         DIRECT_MARK="$2"
         shift 2
         ;;
-      -v|--verbose)
+      -v | --verbose)
         VERBOSE=1
         shift 1
         ;;
-      -f|--flush)
+      -f | --flush)
         FLUSH=1
         shift 1
         ;;
-      -h|--help)
+      -h | --help)
         _print_usage
         exit 0
         ;;
