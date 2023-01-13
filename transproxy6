@@ -17,7 +17,7 @@ alias iptables-save=ip6tables-save
 alias iptables-restore=ip6tables-restore
 
 TRANSPROXY_NAME="${0##*/}"
-TRANSPROXY_VERSION=0.4.1
+TRANSPROXY_VERSION=0.4.2
 
 TRANSPROXY_PREFIX_IPTABLES="TRANSPROXY_"
 TRANSPROXY_PREFIX_IPSET="transproxy6_"
