@@ -57,7 +57,7 @@ It's just a parody of the big guy's work, the design idea was derived from ss-ru
 ## License
 
 ```txt
-Copyright (C) 2021-2022, Sing Yu Chan <i@pexcn.me>
+Copyright (C) 2021-2023, Sing Yu Chan <pexcn97@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
