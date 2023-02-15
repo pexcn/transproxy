@@ -99,9 +99,9 @@ _apply_sysctl() {
 }
 
 _get_reserved_ip() {
-  # TODO: review needed
   cat <<-EOF
-	::/127
+	::/128
+	::1/128
 	::ffff:0:0/96
 	::ffff:0:0:0/96
 	64:ff9b::/96
